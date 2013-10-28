@@ -113,14 +113,20 @@ def download_usb_ids():
     
     return fname
 
-# if len(sys.argv) != 4:
-#     print "Need 3 arguments"
-#     sys.exit(2)
+if not 'ANDROID_HOME' in os.environ:
+    print >> sys.stderr, "ANDROID_HOME must be set in the environment"
+    exit(2)
+
+adb_path = os.path.join(os.environ['ANDROID_HOME'], 'platform-tools', 'adb')
+
+if not os.path.exists(adb_path):
+    print >> sys.stderr, "Could not find adb at %s" % adb_path
+    exit(2)
 
 phones = get_phones(StringIO.StringIO(subprocess.check_output(['/usr/sbin/system_profiler', 'SPUSBDataType'])))
 usb_ids = get_usb_ids(open(download_usb_ids(), 'r'))
 resolved = resolve_devices(phones, usb_ids)
-adb_devices = parse_adb_devices(StringIO.StringIO(subprocess.check_output(['/usr/local/bin/adb', 'devices'])))
+adb_devices = parse_adb_devices(StringIO.StringIO(subprocess.check_output([adb_path, 'devices'])))
 missing = find_missing(resolved, adb_devices[:])
 
 if len(missing) > 0:
