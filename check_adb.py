@@ -8,6 +8,49 @@ import urllib
 import tempfile
 import os
 import StringIO
+import argparse
+import BaseHTTPServer
+import time
+import json
+
+# http://code.activestate.com/recipes/325905/
+class MWT(object):
+    """Memoize With Timeout"""
+    _caches = {}
+    _timeouts = {}
+    
+    def __init__(self,timeout=2):
+        self.timeout = timeout
+        
+    def collect(self):
+        """Clear cache of results which have timed out"""
+        for func in self._caches:
+            cache = {}
+            for key in self._caches[func]:
+                if (time.time() - self._caches[func][key][1]) < self._timeouts[func]:
+                    cache[key] = self._caches[func][key]
+            self._caches[func] = cache
+    
+    def __call__(self, f):
+        self.cache = self._caches[f] = {}
+        self._timeouts[f] = self.timeout
+        
+        def func(*args, **kwargs):
+            kw = kwargs.items()
+            kw.sort()
+            key = (args, tuple(kw))
+            try:
+                v = self.cache[key]
+                print "cache"
+                if (time.time() - v[1]) > self.timeout:
+                    raise KeyError
+            except KeyError:
+                print "new"
+                v = self.cache[key] = f(*args,**kwargs),time.time()
+            return v[0]
+        func.func_name = f.func_name
+        
+        return func
 
 def get_phones(readable):
     devices=[]
@@ -113,22 +156,62 @@ def download_usb_ids():
     
     return fname
 
-if not 'ANDROID_HOME' in os.environ:
-    print >> sys.stderr, "ANDROID_HOME must be set in the environment"
-    exit(2)
+@MWT(timeout=5)
+def do_check():
+    print >> sys.stderr, "checking"
+    phones = get_phones(StringIO.StringIO(subprocess.check_output(['/usr/sbin/system_profiler', 'SPUSBDataType'])))
+    usb_ids = get_usb_ids(open(download_usb_ids(), 'r'))
+    resolved = resolve_devices(phones, usb_ids)
+    adb_devices = parse_adb_devices(StringIO.StringIO(subprocess.check_output([adb_path, 'devices'])))
+    return find_missing(resolved, adb_devices[:])
 
-adb_path = os.path.join(os.environ['ANDROID_HOME'], 'platform-tools', 'adb')
+class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+    def do_HEAD(s):
+        s.send_response(200)
+        s.send_header("Content-type", "application/json")
+        s.end_headers()
+    def do_GET(s):
+        """Respond to a GET request."""
+        s.send_response(200)
+        s.send_header("Content-type", "application/json")
+        s.end_headers()
+        s.wfile.write(json.dumps(do_check()))
+
+
+
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument('--listen', dest='port', action='store', help='listen on the port',
+metavar='int', type=int, choices=xrange(65536))
+parser.add_argument('--adb', dest='adb_path', action='store', help='path to adb')
+
+args = parser.parse_args()
+
+if args.adb_path:
+    adb_path = args.adb_path
+
+else:
+    if not 'ANDROID_HOME' in os.environ:
+        print >> sys.stderr, "ANDROID_HOME must be set in the environment"
+        exit(2)
+
+    adb_path = os.path.join(os.environ['ANDROID_HOME'], 'platform-tools', 'adb')
 
 if not os.path.exists(adb_path):
     print >> sys.stderr, "Could not find adb at %s" % adb_path
     exit(2)
 
-phones = get_phones(StringIO.StringIO(subprocess.check_output(['/usr/sbin/system_profiler', 'SPUSBDataType'])))
-usb_ids = get_usb_ids(open(download_usb_ids(), 'r'))
-resolved = resolve_devices(phones, usb_ids)
-adb_devices = parse_adb_devices(StringIO.StringIO(subprocess.check_output([adb_path, 'devices'])))
-missing = find_missing(resolved, adb_devices[:])
-
-if len(missing) > 0:
-    print >> sys.stderr, missing
-    sys.exit(1)
+if args.port:
+    server_class = BaseHTTPServer.HTTPServer
+    httpd = server_class(('', args.port), MyHandler)
+    print time.asctime(), "Server Starts - %s:%s" % ('', args.port)
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    httpd.server_close()
+    
+else:
+    missing = do_check()
+    if len(missing) > 0:
+        print >> sys.stderr, missing
+        sys.exit(1)
