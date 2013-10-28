@@ -82,7 +82,8 @@ def get_phones(readable):
     if current_device:
         devices.append(current_device)
 
-    phones = filter(lambda x: 'Serial Number' in x, devices)
+    phones = filter(lambda x: 'Serial Number' in x and not '0x05ac' in x['Vendor ID'], devices)
+    
     
     vendors = (re.search(r'^\s+0x(\w{4}).*', p['Vendor ID']).group(1) for p in phones)
     products = (re.search(r'^\s+0x(\w{4}).*', p['Product ID']).group(1) for p in phones)
