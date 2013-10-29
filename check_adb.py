@@ -182,17 +182,30 @@ def do_check():
 
 class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
-    def do_HEAD(s):
-        s.send_response(200)
-        s.send_header("Content-type", "application/json")
-        s.end_headers()
+    def do_HEAD(self):
+        if self.path != '/':
+            self.send_404()
+            return
 
-    def do_GET(s):
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+
+    def do_GET(self):
         """Respond to a GET request."""
-        s.send_response(200)
-        s.send_header("Content-type", "application/json")
-        s.end_headers()
-        s.wfile.write(json.dumps(do_check()))
+        if self.path != '/':
+            self.send_404()
+            return
+
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(do_check()))
+
+    def send_404(self):
+        self.send_response(404)
+        self.end_headers()
+
 
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('--listen', dest='port', action='store',
