@@ -12,6 +12,7 @@ import argparse
 import BaseHTTPServer
 import time
 import json
+import pprint
 
 
 # http://code.activestate.com/recipes/325905/
@@ -43,11 +44,9 @@ class MWT(object):
             key = (args, tuple(kw))
             try:
                 v = self.cache[key]
-                print "cache"
                 if (time.time() - v[1]) > self.timeout:
                     raise KeyError
             except KeyError:
-                print "new"
                 v = self.cache[key] = f(*args, **kwargs), time.time()
             return v[0]
         func.func_name = f.func_name
@@ -168,7 +167,6 @@ def download_usb_ids():
 
 @MWT(timeout=5)
 def do_check():
-    print >> sys.stderr, "checking"
     sysprofiler_output = subprocess.check_output(['/usr/sbin/system_profiler',
                                                   'SPUSBDataType'])
     phones = get_phones(StringIO(sysprofiler_output))
@@ -177,7 +175,9 @@ def do_check():
 
     adb_output = StringIO(subprocess.check_output([adb_path, 'devices']))
     adb_devices = parse_adb_devices(adb_output)
-    return find_missing(resolved, adb_devices[:])
+    return {'missing': find_missing(resolved, adb_devices[:]),
+            'adb': adb_devices,
+            'usb': resolved}
 
 
 class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
@@ -229,7 +229,7 @@ if args.port:
     httpd.server_close()
 
 else:
-    missing = do_check()
-    if len(missing) > 0:
-        print >> sys.stderr, missing
+    everything = do_check()
+    pprint.pprint(everything)
+    if len(everything['missing']) > 0:
         sys.exit(1)
