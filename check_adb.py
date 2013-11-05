@@ -78,9 +78,6 @@ def get_phones(readable):
             elif lines_in_block == 1:
                 current_device['Name'] = parts[0]
 
-            else:
-                raise "woops: " + line
-
     if current_device:
         devices.append(current_device)
 
