@@ -130,7 +130,7 @@ def resolve_devices(phones, usb_ids):
             except KeyError, e:
                 desc = "Error: Not found"
 
-        resolved[phone[2]] = (phone[2], phone[0], phone[1], desc, phone[3])
+        resolved[phone[2]] = {'adb' : phone[2], 'vendorID' : phone[0], 'productID' : phone[1], 'description' : desc, 'name' : phone[3]}
     return resolved
 
 
@@ -145,6 +145,12 @@ def parse_adb_devices(readable):
 
         devices.append(device)
     return devices
+
+def add_os_version(adb_devices, resolved):
+    for deviceId in adb_devices:
+        osRawVersion = StringIO(subprocess.check_output([adb_path, '-s', deviceId, 'shell', 'getprop', 'ro.build.version.release']))
+        osVersion = osRawVersion.readlines()[0].strip(' \t\n\r')
+        resolved[deviceId]["osVersion"] = osVersion
 
 
 def find_missing(resolved, adb_devices):
@@ -175,6 +181,9 @@ def do_check():
 
     adb_output = StringIO(subprocess.check_output([adb_path, 'devices']))
     adb_devices = parse_adb_devices(adb_output)
+
+    add_os_version(adb_devices, resolved)
+
     return {'missing': find_missing(resolved, adb_devices[:]),
             'adb': adb_devices,
             'usb': resolved}
