@@ -146,11 +146,14 @@ def parse_adb_devices(readable):
         devices.append(device)
     return devices
 
-def add_os_version(adb_devices, resolved):
+def add_device_details(adb_devices, resolved):
     for deviceId in adb_devices:
         osRawVersion = StringIO(subprocess.check_output([adb_path, '-s', deviceId, 'shell', 'getprop', 'ro.build.version.release']))
         osVersion = osRawVersion.readlines()[0].strip(' \t\n\r')
+        modelRawVersion = StringIO(subprocess.check_output([adb_path, '-s', deviceId, 'shell', 'getprop', 'ro.product.model']))
+        model = modelRawVersion.readlines()[0].strip(' \t\n\r')
         resolved[deviceId]["osVersion"] = osVersion
+        resolved[deviceId]["productModel"] = model
 
 
 def find_missing(resolved, adb_devices):
@@ -182,7 +185,7 @@ def do_check():
     adb_output = StringIO(subprocess.check_output([adb_path, 'devices']))
     adb_devices = parse_adb_devices(adb_output)
 
-    add_os_version(adb_devices, resolved)
+    add_device_details(adb_devices, resolved)
 
     return {'missing': find_missing(resolved, adb_devices[:]),
             'adb': adb_devices,
