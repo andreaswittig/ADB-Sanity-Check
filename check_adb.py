@@ -125,7 +125,10 @@ def resolve_devices(phones, usb_ids):
         try:
             desc = usb_ids[key]
         except KeyError, e:
-            desc = usb_ids[phone[0]]
+            try:
+                desc = usb_ids[phone[0]]
+            except KeyError, e:
+                desc = "Error: Not found"
 
         resolved[phone[2]] = (phone[2], phone[0], phone[1], desc, phone[3])
     return resolved
