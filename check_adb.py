@@ -183,11 +183,19 @@ def do_check():
     sysprofiler_output = subprocess.check_output(['/usr/sbin/system_profiler',
                                                   'SPUSBDataType'])
     phones = get_phones(StringIO(sysprofiler_output))
-    usb_ids = get_usb_ids(open(download_usb_ids(), 'r'))
+    filename = download_usb_ids()
+    usb_ids = get_usb_ids(open(filename, 'r'))
+
+    # Check if USB IDs are available and delete old cache if not
     try:
         usb_ids["0001"]
     except KeyError, e:
         print("ERROR: USB Id file corrupt!")
+        try:
+            os.remove(filename)
+        except OSError:
+            pass
+
         exit(2)
 
     resolved = resolve_devices(phones, usb_ids)
