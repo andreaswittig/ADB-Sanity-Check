@@ -184,6 +184,12 @@ def do_check():
                                                   'SPUSBDataType'])
     phones = get_phones(StringIO(sysprofiler_output))
     usb_ids = get_usb_ids(open(download_usb_ids(), 'r'))
+    try:
+        usb_ids["0001"]
+    except KeyError, e:
+        print("ERROR: USB Id file corrupt!")
+        exit(2)
+
     resolved = resolve_devices(phones, usb_ids)
 
     adb_output = StringIO(subprocess.check_output([adb_path, 'devices']))
