@@ -171,6 +171,10 @@ def download_usb_ids():
     if not os.path.exists(fname):
         urllib.urlretrieve('http://www.linux-usb.org/usb.ids', fname)
 
+    if not os.path.exists(fname):
+        print("ERROR downloading USB Ids!")
+        exit(2)
+
     return fname
 
 
