@@ -140,6 +140,8 @@ def parse_adb_devices(readable):
         line = line.strip(' \t\n\r')
         if len(line) == 0:
             continue
+        if "unauthorized" in line:
+            continue
 
         (device, _, status) = line.partition('\t')
 
@@ -148,13 +150,16 @@ def parse_adb_devices(readable):
 
 def add_device_details(adb_devices, resolved):
     for deviceId in adb_devices:
-        osRawVersion = StringIO(subprocess.check_output([adb_path, '-s', deviceId, 'shell', 'getprop', 'ro.build.version.release']))
-        osVersion = osRawVersion.readlines()[0].strip(' \t\n\r')
-        modelRawVersion = StringIO(subprocess.check_output([adb_path, '-s', deviceId, 'shell', 'getprop', 'ro.product.model']))
-        model = modelRawVersion.readlines()[0].strip(' \t\n\r')
-        resolved[deviceId]["osVersion"] = osVersion
-        resolved[deviceId]["productModel"] = model
-
+        try:
+            osRawVersion = StringIO(subprocess.check_output([adb_path, '-s', deviceId, 'shell', 'getprop', 'ro.build.version.release']))
+            osVersion = osRawVersion.readlines()[0].strip(' \t\n\r')
+            modelRawVersion = StringIO(subprocess.check_output([adb_path, '-s', deviceId, 'shell', 'getprop', 'ro.product.model']))
+            model = modelRawVersion.readlines()[0].strip(' \t\n\r')
+            resolved[deviceId]["osVersion"] = osVersion
+            resolved[deviceId]["productModel"] = model
+        except:
+            resolved[deviceId]["osVersion"] = "Error"
+            resolved[deviceId]["productModel"] = "Error"
 
 def find_missing(resolved, adb_devices):
     missing = []
